@@ -1,0 +1,1 @@
+ef9f6a2d788f88868132138ebdfd0ba44fe9a73b9c871b100748d6f674571331  work/github-publish/3DM-to-DXF-macOS-arm64-v0.9.zip
