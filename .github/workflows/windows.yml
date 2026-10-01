@@ -1,0 +1,52 @@
+name: Build and publish Windows
+
+on:
+  push:
+    paths:
+      - windows-source-v0.10.0.zip
+      - .github/workflows/windows.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: windows-release
+  cancel-in-progress: false
+
+jobs:
+  windows:
+    runs-on: windows-2022
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+          architecture: x64
+      - name: Extract source
+        shell: pwsh
+        run: Expand-Archive windows-source-v0.10.0.zip -DestinationPath windows-build
+      - name: Build and test packaged EXE
+        shell: pwsh
+        run: ./windows-build/build.ps1
+      - name: Save build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: Windows-x64-v0.10.0
+          path: windows-build/release/*
+          if-no-files-found: error
+      - name: Publish verified Windows release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $tag = 'v0.10.0-windows'
+          gh release view $tag --repo $env:GITHUB_REPOSITORY
+          if ($LASTEXITCODE -ne 0) {
+            gh release create $tag --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --title '3DM → DXF v0.10.0 for Windows x64' --notes-file windows-build/RELEASE-Windows.md --latest=false
+            if ($LASTEXITCODE -ne 0) { throw 'Release creation failed' }
+          }
+          gh release upload $tag --repo $env:GITHUB_REPOSITORY --clobber windows-build/release/3DM-to-DXF-Windows-x64-v0.10.0.zip windows-build/release/SHA256SUMS-Windows.txt windows-build/release/windows-smoke-test.json windows-source-v0.10.0.zip
+          if ($LASTEXITCODE -ne 0) { throw 'Release asset upload failed' }
